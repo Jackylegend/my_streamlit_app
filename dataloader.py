@@ -20,10 +20,14 @@ def load_gdp_data():
 #---------------------------------------------------------------------------------------------------------------------------------------
 
 # Loading IR data
-# @st.cache
-# def yield_data():
-#     # Load your dataset here
-#     data = pd.read_csv('path/to/your/dataset.csv')
-#     return data
+@st.cache_data
+def yield_data():
+    # Load your dataset here
+    rates_df = pd.read_excel('dataset/rates_all.xlsx')
+    rates_df['Date'] = pd.to_datetime(rates_df['Date']).dt.strftime('%Y-%m-%d')
+    freq = rates_df['Frequency'].unique().tolist()
+    type = rates_df['Type'].unique().tolist()
+    var_names = rates_df['Name'].unique().tolist()
+    return rates_df, freq, type, var_names
 
 
