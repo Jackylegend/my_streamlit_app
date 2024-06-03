@@ -3,14 +3,161 @@ import pandas as pd
 import plotly.express as px
 from pyecharts.charts import Line, Bar, Grid
 from pyecharts import options as opts
-from pyecharts.globals import ThemeType
+from pyecharts.globals import ThemeType, JsCode
+import plotly.graph_objects as go
 from streamlit_echarts import st_pyecharts
 from dataloader import yield_data
 
 st.set_page_config(layout='wide')
 rate_list,yield_list,tips_list = yield_data()
+#--------------------------------------------------
+# Term Structure Comparison:
+display_col = ['Date','Name','Values']
+st_order_col = ('Date','1-month','3-month','6-month','1-year','2-year','3-year','5-year','7-year','10-year','20-year','30-year')
+order_col = ['1-month','3-month','6-month','1-year','2-year','3-year','5-year','7-year','10-year','20-year','30-year']
+tips_col = ['5-year','7-year','10-year','20-year','30-year']
+term_yield_list = yield_list[(yield_list['Frequency'] == 'Weekly')]
+term_tips_list = tips_list[(tips_list['Frequency'] == 'Weekly')]
+term_yield_list = term_yield_list[display_col]
+term_tips_list = term_tips_list[display_col]
 
+# term structure for yield maturity
+term_yield_df = term_yield_list.pivot(index = 'Date', columns = 'Name', values = 'Values')
+term_yield_df = term_yield_df.sort_values(by ='Date',ascending=False)
+term_yield_df = term_yield_df.drop('Federal funds (effective)', axis=1).dropna()
+term_yield_df = term_yield_df[order_col]
 
+# term structure for TIPS (real rates)
+term_tips_df = term_tips_list.pivot(index = 'Date', columns = 'Name', values = 'Values')
+term_tips_df = term_tips_df.sort_values(by ='Date',ascending=False)
+term_tips_df = term_tips_df[tips_col]
+
+# Initialize session state
+if 'row_index1' not in st.session_state:
+    st.session_state.row_index1 = 0
+if 'row_index2' not in st.session_state:
+    st.session_state.row_index2 = 1
+
+def display_rows(row_index1, row_index2):
+    st.write("Row 1:")
+    st.dataframe(term_yield_df.iloc[[row_index1]])
+    st.write("Row 2:")
+    st.dataframe(term_yield_df.iloc[[row_index2]])
+
+    # Create a line chart for the two selected rows
+    sorted_df = term_yield_df.iloc[[row_index1, row_index2]].T
+    fig = px.line(sorted_df)
+    fig.data[0].line.color = 'darkgreen'
+    fig.data[1].line.color = 'darkorange'
+    for column in sorted_df.columns:
+        for i, value in enumerate(sorted_df[column]):
+            fig.add_annotation(x=sorted_df.index[i], y=value, text=str(value),
+                               showarrow=False, font=dict(color='black'),yshift=10)
+    # Add scatter plot with markers
+    fig.add_trace(go.Scatter(
+        x=sorted_df.index,
+        y=sorted_df.iloc[:, 0],  # Taking values from the first selected row
+        mode='markers',
+        marker=dict(color='green'),
+        showlegend=False  # Color for the first row's markers
+    ))
+    fig.add_trace(go.Scatter(
+        x=sorted_df.index,
+        y=sorted_df.iloc[:, 1],  # Taking values from the second selected row
+        mode='markers',
+        marker=dict(color='orange'),
+        showlegend=False,  # Color for the second row's markers
+    ))
+    fig.update_layout(
+        title=f"Interest Rates for {term_yield_df.index[row_index1]} and {term_yield_df.index[row_index2]}",
+        xaxis_title="Maturity",
+        yaxis_title="Interest Rate (%)",
+        yaxis_range=[3, max(sorted_df.max()) * 1.2],
+        xaxis=dict(linecolor='black', linewidth=1), 
+        yaxis=dict(linecolor='black', linewidth=1,dtick=0.5),
+        autosize=True,
+        xaxis_range=[term_yield_df.index.min(), term_yield_df.index.max()],
+
+    )
+    st.plotly_chart(fig, use_container_width=True,config={"scrollZoom": True})
+
+# Button to go to the previous row for the first index
+if st.button('Previous Week'):
+    if st.session_state.row_index1 > 0:
+        st.session_state.row_index1 -= 1
+
+# Button to go to the next row for the first index
+if st.button('Next week'):
+    if st.session_state.row_index1 < len(term_yield_df) - 1:
+        st.session_state.row_index1 += 1
+
+if st.button('Previous Row 2'):
+    if st.session_state.row_index2 > 0:
+        st.session_state.row_index2 -= 1
+
+# Button to go to the next row for the second index
+if st.button('Next Row 2'):
+    if st.session_state.row_index2 < len((term_yield_df)) - 1:
+        st.session_state.row_index2 += 1
+
+if st.session_state.row_index2 <= st.session_state.row_index1:
+    st.session_state.row_index2 = st.session_state.row_index1 + 1
+
+display_rows(st.session_state.row_index1,st.session_state.row_index2)
+
+st.divider()
+
+st.dataframe(term_yield_df, column_order= st_order_col)
+
+st.divider()
+#----------------------------------------------------------------------
+def display_rows(row_index1, row_index2):
+    st.write("Row 1:")
+    st.dataframe(term_tips_df.iloc[[row_index1]])
+    st.write("Row 2:")
+    st.dataframe(term_tips_df.iloc[[row_index2]])
+
+    # Create a line chart for the two selected rows
+    sorted_df = term_tips_df.iloc[[row_index1, row_index2]].T
+    fig = px.line(sorted_df)
+    fig.data[0].line.color = 'darkgreen'
+    fig.data[1].line.color = 'darkorange'
+    for column in sorted_df.columns:
+        for i, value in enumerate(sorted_df[column]):
+            fig.add_annotation(x=sorted_df.index[i], y=value, text=str(value),
+                               showarrow=False, font=dict(color='black'),yshift=10)
+    # Add scatter plot with markers
+    fig.add_trace(go.Scatter(
+        x=sorted_df.index,
+        y=sorted_df.iloc[:, 0],  # Taking values from the first selected row
+        mode='markers',
+        marker=dict(color='green'),
+        showlegend=False  # Color for the first row's markers
+    ))
+    fig.add_trace(go.Scatter(
+        x=sorted_df.index,
+        y=sorted_df.iloc[:, 1],  # Taking values from the second selected row
+        mode='markers',
+        marker=dict(color='orange'),
+        showlegend=False,  # Color for the second row's markers
+    ))
+    fig.update_layout(
+        title=f"Interest Rates for {term_yield_df.index[row_index1]} and {term_yield_df.index[row_index2]}",
+        xaxis_title="Maturity",
+        yaxis_title="Interest Rate (%)",
+        yaxis_range=[1.5, max(sorted_df.max()) * 1.2],
+        xaxis=dict(linecolor='black', linewidth=1), 
+        yaxis=dict(linecolor='black', linewidth=1,dtick=0.2),
+        autosize=True,
+        xaxis_range=[term_yield_df.index.min(), term_yield_df.index.max()],
+
+    )
+    st.plotly_chart(fig, use_container_width=True,config={"scrollZoom": True})
+display_rows(st.session_state.row_index1,st.session_state.row_index2)
+st.dataframe(term_tips_df, column_order= st_order_col)
+
+st.divider()
+#----------------------------------------------------------------------
 freq = rate_list['Frequency'].unique().tolist()
 # #type = rates_df['Type'].unique().tolist()
 # #var_names = rates_df['Name'].unique().tolist()
@@ -51,7 +198,8 @@ if selection:
         chart = (
             Line(init_opts=opts.InitOpts(height= '1000px',theme=ThemeType.LIGHT))
             .add_xaxis(df['Date'].tolist())
-            .add_yaxis(line, df[line].tolist(),label_opts=opts.LabelOpts(is_show=False),symbol="none")
+            .add_yaxis(line, df[line].tolist(),linestyle_opts=opts.LineStyleOpts(width=1.5),
+                       label_opts=opts.LabelOpts(is_show=False),symbol="none")
         )
         chart.set_global_opts(
             title_opts=opts.TitleOpts(),
