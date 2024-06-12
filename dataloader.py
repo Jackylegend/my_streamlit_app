@@ -26,10 +26,10 @@ def yield_data():
     rates_df = pd.read_excel('dataset/rates_all.xlsx')
     rates_df['Date'] = pd.to_datetime(rates_df['Date']).dt.strftime('%Y-%m-%d')
     #rates_df = rates_df.dropna(subset=['Values'])
-    rate_list = rates_df[rates_df['Type'] == 'Rate']
-    yield_list = rates_df[rates_df['Type'] == 'Yield']
+    rate_list = rates_df['Frequency'].unique()
+    data_type = rates_df['Type'].unique()
     tips_list = rates_df[rates_df['Type'] == 'Tips'] 
    
-    return rate_list,yield_list,tips_list
+    return rate_list,data_type,tips_list, rates_df
   
 
